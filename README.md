@@ -1,68 +1,34 @@
-# Sats Rewards — watch ads, earn real sats
+# Sats Rewards — Android app
 
-A complete starter kit for an Android rewards app: users watch rewarded ads,
-earn satoshis, and withdraw them over Lightning. In the UI it looks like the
-popular "cloud mining" apps (estimated earnings, hashrate, shop) — the money
-flow underneath is honest: ad revenue in, sats out.
+Native Kotlin + Jetpack Compose app: Home (earnings + watch ads), Shop
+(hashrate packs), Wallet (Lightning withdrawals), Profile.
 
-```
-sats-rewards/
-  backend/   Node.js API (accounts, ad rewards, Lightning withdrawals) — tested
-  android/   Kotlin + Compose app (Home, Shop, Wallet, Profile) + AdMob
-```
+## Build
 
-## How the money works
+1. Open the `android/` folder in Android Studio (Koala or newer).
+2. Let Gradle sync. You need the Android SDK (API 34) — Android Studio
+   installs it for you.
+3. Run on an emulator or your phone, or **Build > Build App Bundle(s)** for
+   the release AAB to upload to the Play Console.
 
-1. User watches a rewarded ad → AdMob pays you ~$0.005–0.015 per view.
-2. Backend credits the user a few sats (configurable, default 5/ad, max 30/day).
-3. User withdraws to their own Lightning wallet once they reach the minimum
-   (default 2000 sats). You fund the Lightning wallet; ad revenue refills it.
+The emulator reaches a backend running on your PC via `10.0.2.2:3000`
+(already set in `Config.kt`).
 
-Keep the payout ratio under ~50% of ad revenue and the unit economics stay
-positive from the first user. See the backend README for the anti-fraud
-checklist — fraud is what kills these apps, not the code.
+## Before release — replace the test ids
 
-## Going live — checklist
+| What | File | Test value → real value |
+|---|---|---|
+| AdMob app id | `AndroidManifest.xml` | `ca-app-pub-3940256099942544~3347511713` → your AdMob app id |
+| Rewarded ad unit | `ads/AdMobManager.kt` (`REWARDED_AD_UNIT_ID`) | `.../5224354917` → your rewarded ad unit id |
+| Backend URL | `Config.kt` (`BACKEND_URL`) | `http://10.0.2.2:3000` → `https://your-api-domain.com` |
 
-### 1. Backend on a VPS (~$5/month)
-- Any small VPS (Hetzner, DigitalOcean, OVH...), Ubuntu 24.04, Node 22+.
-- Copy `backend/`, run `npm install`, create `.env` from `.env.example`.
-- Run behind a reverse proxy with HTTPS (Caddy or nginx) — the app must use
-  `https://` in production.
-- Keep it running with `systemd` or `pm2`.
+## Notes
 
-### 2. Lightning wallet (the payout float)
-- Install [LNbits](https://lnbits.com) on the VPS (or use a hosted instance),
-  open a Lightning channel / fund it with **0.001–0.002 BTC** to start.
-- Set `LNBITS_URL` + `LNBITS_API_KEY` in backend `.env`, restart, and check
-  `/health` shows `"mode": "lnbits"`.
-- Rule of thumb: keep 1–2 months of expected payouts in the hot wallet.
-
-### 3. AdMob
-- Create an AdMob account, add the Android app, create a **Rewarded** ad unit.
-- Replace the test ids (see `android/README.md`) and set the real backend URL
-  in `Config.kt`.
-
-### 4. Google Play
-- Google Play Console account ($25 one-time).
-- In Android Studio: **Build > Generate Signed Bundle** → upload the AAB.
-- Fill in the store listing, content rating questionnaire, and the
-  "financial features" declaration (the app deals with cryptocurrency rewards).
-- Note: on-device crypto mining is banned; this app does none — rewards are
-  credited server-side. Apps whose *primary purpose* is serving ads can be
-  rejected, so make sure the app has real standalone value (wallet, history,
-  shop) beyond the ad button.
-
-### 5. Before scaling
-- Validate AdMob **SSV callbacks** server-side before crediting (backend
-  README has the details).
-- Enforce **Play Integrity API** verdicts on `/auth/register` and
-  `/rewards/ad`.
-- Start with a small trusted group, watch the fraud patterns, then open up.
-
-## Project status
-
-- Backend: written and tested end-to-end locally (register → ad reward →
-  rate limits → withdrawal in mock Lightning mode).
-- Android app: complete source, **not compiled here** (no Android SDK on this
-  machine) — open in Android Studio to build the APK/AAB.
+- The hashrate shown in the UI is a **simulated display**, like other
+  cloud-mining apps. Real value flows: rewarded ads → backend credits →
+  Lightning withdrawals.
+- Paid hashrate packs need Google Play Billing integration (marked TODO in
+  `ShopScreen.kt`). The MVP ships with free + ad-boosted packs only.
+- For production, validate AdMob **Server-Side Verification (SSV)**
+  callbacks in the backend before crediting sats, and check the
+  **Play Integrity API** verdict to block emulators.
