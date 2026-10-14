@@ -1,34 +1,44 @@
-# Sats Rewards — Android app
+# Sats Rewards — backend
 
-Native Kotlin + Jetpack Compose app: Home (earnings + watch ads), Shop
-(hashrate packs), Wallet (Lightning withdrawals), Profile.
+API for the watch-ads-earn-sats Android app: device accounts, ad-reward
+credits, and Lightning withdrawals (LNbits, with a mock mode for testing).
 
-## Build
+## Run
 
-1. Open the `android/` folder in Android Studio (Koala or newer).
-2. Let Gradle sync. You need the Android SDK (API 34) — Android Studio
-   installs it for you.
-3. Run on an emulator or your phone, or **Build > Build App Bundle(s)** for
-   the release AAB to upload to the Play Console.
+```bash
+cd backend
+npm install
+cp .env.example .env   # optional
+npm start              # http://localhost:3000
+```
 
-The emulator reaches a backend running on your PC via `10.0.2.2:3000`
-(already set in `Config.kt`).
+Needs Node >= 22.5 (uses built-in `node:sqlite`, no native modules).
 
-## Before release — replace the test ids
+## Endpoints
 
-| What | File | Test value → real value |
-|---|---|---|
-| AdMob app id | `AndroidManifest.xml` | `ca-app-pub-3940256099942544~3347511713` → your AdMob app id |
-| Rewarded ad unit | `ads/AdMobManager.kt` (`REWARDED_AD_UNIT_ID`) | `.../5224354917` → your rewarded ad unit id |
-| Backend URL | `Config.kt` (`BACKEND_URL`) | `http://10.0.2.2:3000` → `https://your-api-domain.com` |
+| Method | Path              | Auth   | Description                              |
+|--------|-------------------|--------|------------------------------------------|
+| POST   | /auth/register    | no     | `{device_id}` → `{token, user_id}`       |
+| GET    | /config           | no     | reward amounts, limits, lightning mode   |
+| GET    | /me               | bearer | balance, totals, ads watched today       |
+| POST   | /rewards/ad       | bearer | credit sats for one watched ad           |
+| POST   | /withdraw         | bearer | `{amount_sats, invoice}` → Lightning pay |
+| GET    | /ledger           | bearer | recent credit/debit history              |
+| GET    | /health           | no     | server + Lightning wallet status         |
 
-## Notes
+## Going live with real sats
 
-- The hashrate shown in the UI is a **simulated display**, like other
-  cloud-mining apps. Real value flows: rewarded ads → backend credits →
-  Lightning withdrawals.
-- Paid hashrate packs need Google Play Billing integration (marked TODO in
-  `ShopScreen.kt`). The MVP ships with free + ad-boosted packs only.
-- For production, validate AdMob **Server-Side Verification (SSV)**
-  callbacks in the backend before crediting sats, and check the
-  **Play Integrity API** verdict to block emulators.
+1. Run an [LNbits](https://lnbits.com) instance (or use a hosted one) and fund
+   its Lightning wallet with the starting float (~0.001–0.002 BTC is plenty).
+2. Set `LNBITS_URL` and `LNBITS_API_KEY` in `.env` and restart.
+3. Check `/health` — `lightning.mode` should be `lnbits`.
+
+## Before publishing (important)
+
+- **AdMob SSV**: `/rewards/ad` currently trusts the app. In production,
+  validate Google's Server-Side Verification callback for rewarded ads and
+  only credit on a signed, verified callback.
+- **Play Integrity API**: verify the device verdict on register/reward calls
+  to block emulators and rooted farms.
+- **Auth**: the device-token scheme is fine for an MVP; consider Firebase Auth
+  or similar once you have real users.
